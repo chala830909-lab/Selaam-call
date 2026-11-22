@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">SelamCall</string>
+    <string name="nav_contacts">Contacts</string>
+    <string name="nav_recents">Recents</string>
+    <string name="nav_support">Support</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="support_telegram_handle">\@chalamohammed3</string>
+    <string name="support_telegram_url">https://t.me/chalamohammed3</string>
+    <string name="support_whatsapp_display">0983156394</string>
+    <string name="support_whatsapp_url">https://wa.me/251983156394</string>
+</resources>

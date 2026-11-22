@@ -1,0 +1,329 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUsername(username) {
+      return username is string && username.size() >= 3 && username.size() <= 24 && username.matches('^[a-z0-9_]+$');
+    }
+
+    function isValidPhoneKey(phoneKey) {
+      return phoneKey is string && phoneKey.size() >= 7 && phoneKey.size() <= 16 && phoneKey.matches('^[0-9]+$');
+    }
+
+    function isValidPhoneNumber(phone) {
+      return phone is string && phone.size() >= 8 && phone.size() <= 17 && phone.matches('^\\+[0-9]+$');
+    }
+
+    function isValidCountryCode(code) {
+      return code is string && code.size() >= 2 && code.size() <= 5 && code.matches('^\\+[0-9]+$');
+    }
+
+    function isValidLocalPhone(local) {
+      return local is string && local.size() >= 5 && local.size() <= 14 && local.matches('^[0-9]+$');
+    }
+
+    function isValidUserProfile(data) {
+      return data.uid is string && isValidId(data.uid) &&
+             data.email is string && data.email.size() <= 254 &&
+             isValidUsername(data.username) &&
+             isValidCountryCode(data.countryCode) &&
+             isValidLocalPhone(data.localPhone) &&
+             isValidPhoneNumber(data.phoneNumber) &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             data.onlineStatus is bool &&
+             data.discoverable is bool &&
+             data.lastSeen is timestamp && data.lastSeen <= request.time &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidDirectoryEntry(data) {
+      return data.uid is string && isValidId(data.uid) &&
+             isValidUsername(data.username) &&
+             isValidPhoneNumber(data.phoneNumber) &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             data.onlineStatus is bool &&
+             data.discoverable is bool &&
+             data.lastSeen is timestamp && data.lastSeen <= request.time &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCall(data) {
+      return data.callerId is string && isValidId(data.callerId) &&
+             data.calleeId is string && isValidId(data.calleeId) &&
+             data.callerId != data.calleeId &&
+             data.callerUsername is string && data.callerUsername.size() >= 3 && data.callerUsername.size() <= 24 &&
+             data.callerDisplayName is string && data.callerDisplayName.size() >= 1 && data.callerDisplayName.size() <= 60 &&
+             data.callerPhone is string && data.callerPhone.size() >= 7 && data.callerPhone.size() <= 20 &&
+             data.calleeUsername is string && data.calleeUsername.size() >= 3 && data.calleeUsername.size() <= 24 &&
+             data.calleeDisplayName is string && data.calleeDisplayName.size() >= 1 && data.calleeDisplayName.size() <= 60 &&
+             data.calleePhone is string && data.calleePhone.size() >= 7 && data.calleePhone.size() <= 20 &&
+             data.participantUids is list && data.participantUids.size() == 2 &&
+             data.participantUids[0] == data.callerId && data.participantUids[1] == data.calleeId &&
+             data.callType in ['audio', 'video'] &&
+             data.status in ['ringing', 'accepted', 'declined', 'ended', 'missed'] &&
+             data.callerVideoEnabled is bool &&
+             data.calleeVideoEnabled is bool &&
+             data.durationSeconds is int && data.durationSeconds >= 0 && data.durationSeconds <= 86400 &&
+             (!('offerSdp' in data) || (data.offerSdp is string && data.offerSdp.size() <= 32768)) &&
+             (!('answerSdp' in data) || (data.answerSdp is string && data.answerSdp.size() <= 32768)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time &&
+             (!('endedAt' in data) || (data.endedAt is timestamp && data.endedAt <= request.time));
+    }
+
+    function isTerminalCallStatus(status) {
+      return status in ['declined', 'ended', 'missed'];
+    }
+
+    function isValidIceCandidate(data) {
+      return data.senderId is string && isValidId(data.senderId) &&
+             data.participantUids is list && data.participantUids.size() == 2 &&
+             data.participantUids[0] is string && data.participantUids[1] is string &&
+             data.sdpMid is string && data.sdpMid.size() <= 64 &&
+             data.sdpMLineIndex is int && data.sdpMLineIndex >= 0 && data.sdpMLineIndex <= 32 &&
+             data.candidate is string && data.candidate.size() >= 1 && data.candidate.size() <= 2048 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // 1. Private owner-only user profile
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().uid == request.auth.uid &&
+                       incoming().keys().hasAll([
+                         'uid', 'email', 'username', 'countryCode', 'localPhone',
+                         'phoneNumber', 'displayName', 'onlineStatus', 'discoverable',
+                         'lastSeen', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'uid', 'email', 'username', 'countryCode', 'localPhone',
+                         'phoneNumber', 'displayName', 'onlineStatus', 'discoverable',
+                         'lastSeen', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().uid == existing().uid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'email', 'username', 'countryCode', 'localPhone',
+                         'phoneNumber', 'displayName', 'onlineStatus', 'discoverable',
+                         'lastSeen', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // 2. Authenticated searchable directory & presence
+    match /directory/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) &&
+                    (request.auth.uid == userId || existing().discoverable == true);
+      allow list: if isSignedIn() && resource.data.discoverable == true;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().uid == request.auth.uid &&
+                       incoming().keys().hasAll([
+                         'uid', 'username', 'phoneNumber', 'displayName',
+                         'onlineStatus', 'discoverable', 'lastSeen', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'uid', 'username', 'phoneNumber', 'displayName',
+                         'onlineStatus', 'discoverable', 'lastSeen', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidDirectoryEntry(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidDirectoryEntry(incoming()) &&
+                       incoming().uid == existing().uid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'username', 'phoneNumber', 'displayName',
+                         'onlineStatus', 'discoverable', 'lastSeen', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // 3. Unique @username reservation
+    match /usernames/{username} {
+      allow get: if isSignedIn() && isValidUsername(username);
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidUsername(username) &&
+                       incoming().uid == request.auth.uid &&
+                       incoming().keys().hasAll(['uid', 'createdAt']) &&
+                       incoming().keys().hasOnly(['uid', 'createdAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time;
+
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidUsername(username) && existing().uid == request.auth.uid;
+    }
+
+    // 4. Unique phone number reservation
+    match /phone_claims/{phoneKey} {
+      allow get: if isSignedIn() && isValidPhoneKey(phoneKey);
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidPhoneKey(phoneKey) &&
+                       incoming().uid == request.auth.uid &&
+                       incoming().keys().hasAll(['uid', 'createdAt']) &&
+                       incoming().keys().hasOnly(['uid', 'createdAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time;
+
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidPhoneKey(phoneKey) && existing().uid == request.auth.uid;
+    }
+
+    // 5. WebRTC Call Signaling & Call History
+    match /calls/{callId} {
+      allow get: if isSignedIn() && isValidId(callId) && request.auth.uid in existing().participantUids;
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participantUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(callId) &&
+                       isValidCall(incoming()) &&
+                       incoming().callerId == request.auth.uid &&
+                       incoming().status == 'ringing' &&
+                       incoming().durationSeconds == 0 &&
+                       incoming().keys().hasAll([
+                         'callerId', 'callerUsername', 'callerDisplayName', 'callerPhone',
+                         'calleeId', 'calleeUsername', 'calleeDisplayName', 'calleePhone',
+                         'participantUids', 'callType', 'status', 'callerVideoEnabled',
+                         'calleeVideoEnabled', 'durationSeconds', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'callerId', 'callerUsername', 'callerDisplayName', 'callerPhone',
+                         'calleeId', 'calleeUsername', 'calleeDisplayName', 'calleePhone',
+                         'participantUids', 'callType', 'status', 'callerVideoEnabled',
+                         'calleeVideoEnabled', 'offerSdp', 'answerSdp', 'durationSeconds',
+                         'createdAt', 'updatedAt', 'endedAt'
+                       ]) &&
+                       exists(/databases/$(database)/documents/directory/$(incoming().calleeId));
+
+      allow update: if isSignedIn() &&
+                       isValidId(callId) &&
+                       isValidCall(incoming()) &&
+                       request.auth.uid in existing().participantUids &&
+                       !isTerminalCallStatus(existing().status) &&
+                       incoming().callerId == existing().callerId &&
+                       incoming().calleeId == existing().calleeId &&
+                       incoming().participantUids == existing().participantUids &&
+                       incoming().callerUsername == existing().callerUsername &&
+                       incoming().callerDisplayName == existing().callerDisplayName &&
+                       incoming().callerPhone == existing().callerPhone &&
+                       incoming().calleeUsername == existing().calleeUsername &&
+                       incoming().calleeDisplayName == existing().calleeDisplayName &&
+                       incoming().calleePhone == existing().calleePhone &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Branch 1: Caller updates offer, toggles own video/callType, cancels/misses, or ends call
+                         (
+                           request.auth.uid == existing().callerId &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'offerSdp', 'status', 'callType', 'callerVideoEnabled',
+                             'durationSeconds', 'endedAt', 'updatedAt'
+                           ]) &&
+                           (incoming().status == existing().status || incoming().status in ['ended', 'missed'])
+                         ) ||
+                         // Branch 2: Callee accepts (with answerSdp), declines, toggles own video/callType, or ends call
+                         (
+                           request.auth.uid == existing().calleeId &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'answerSdp', 'status', 'callType', 'calleeVideoEnabled',
+                             'durationSeconds', 'endedAt', 'updatedAt'
+                           ]) &&
+                           (
+                             incoming().status == existing().status ||
+                             (existing().status == 'ringing' && incoming().status in ['accepted', 'declined', 'ended', 'missed']) ||
+                             (existing().status == 'accepted' && incoming().status == 'ended')
+                           )
+                         )
+                       );
+
+      allow delete: if false;
+
+      match /callerCandidates/{candidateId} {
+        allow get: if isSignedIn() && isValidId(callId) && isValidId(candidateId) &&
+                      request.auth.uid in existing().participantUids;
+        allow list: if isSignedIn() && request.auth.uid in resource.data.participantUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(callId) &&
+                         isValidId(candidateId) &&
+                         isValidIceCandidate(incoming()) &&
+                         incoming().senderId == request.auth.uid &&
+                         incoming().keys().hasAll([
+                           'senderId', 'participantUids', 'sdpMid', 'sdpMLineIndex', 'candidate', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'senderId', 'participantUids', 'sdpMid', 'sdpMLineIndex', 'candidate', 'createdAt'
+                         ]) &&
+                         exists(/databases/$(database)/documents/calls/$(callId)) &&
+                         get(/databases/$(database)/documents/calls/$(callId)).data.callerId == request.auth.uid &&
+                         incoming().participantUids == get(/databases/$(database)/documents/calls/$(callId)).data.participantUids;
+
+        allow update, delete: if false;
+      }
+
+      match /calleeCandidates/{candidateId} {
+        allow get: if isSignedIn() && isValidId(callId) && isValidId(candidateId) &&
+                      request.auth.uid in existing().participantUids;
+        allow list: if isSignedIn() && request.auth.uid in resource.data.participantUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(callId) &&
+                         isValidId(candidateId) &&
+                         isValidIceCandidate(incoming()) &&
+                         incoming().senderId == request.auth.uid &&
+                         incoming().keys().hasAll([
+                           'senderId', 'participantUids', 'sdpMid', 'sdpMLineIndex', 'candidate', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'senderId', 'participantUids', 'sdpMid', 'sdpMLineIndex', 'candidate', 'createdAt'
+                         ]) &&
+                         exists(/databases/$(database)/documents/calls/$(callId)) &&
+                         get(/databases/$(database)/documents/calls/$(callId)).data.calleeId == request.auth.uid &&
+                         incoming().participantUids == get(/databases/$(database)/documents/calls/$(callId)).data.participantUids;
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}

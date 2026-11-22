@@ -1,0 +1,252 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private authenticated user profile storing dual identity (phone number and unique username), presence, and account metadata.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Google account email address."
+        },
+        "username": {
+          "type": "string",
+          "description": "Unique lowercase handle without leading @ (3-24 chars)."
+        },
+        "countryCode": {
+          "type": "string",
+          "description": "Dialing prefix e.g. +251."
+        },
+        "localPhone": {
+          "type": "string",
+          "description": "Local subscriber digits."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Full E.164 phone number."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Public display name."
+        },
+        "onlineStatus": {
+          "type": "boolean",
+          "description": "Whether the user is currently online."
+        },
+        "discoverable": {
+          "type": "boolean",
+          "description": "Whether the user appears in the authenticated directory search."
+        },
+        "lastSeen": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last activity (FieldValue.serverTimestamp())."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "username",
+        "countryCode",
+        "localPhone",
+        "phoneNumber",
+        "displayName",
+        "onlineStatus",
+        "discoverable",
+        "lastSeen",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DirectoryEntry": {
+      "title": "DirectoryEntry",
+      "description": "Searchable calling directory record for authenticated users.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "User UID."
+        },
+        "username": {
+          "type": "string",
+          "description": "Unique lowercase username."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "E.164 phone number."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name."
+        },
+        "onlineStatus": {
+          "type": "boolean",
+          "description": "Current online status."
+        },
+        "discoverable": {
+          "type": "boolean",
+          "description": "Directory discoverability flag."
+        },
+        "lastSeen": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last seen."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when updated."
+        }
+      },
+      "required": [
+        "uid",
+        "username",
+        "phoneNumber",
+        "displayName",
+        "onlineStatus",
+        "discoverable",
+        "lastSeen",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "IdentityClaim": {
+      "title": "IdentityClaim",
+      "description": "Uniqueness reservation mapping a username or phone key to an owning UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when claimed."
+        }
+      },
+      "required": ["uid", "createdAt"]
+    },
+    "CallSession": {
+      "title": "CallSession",
+      "description": "WebRTC call signaling record and call history item.",
+      "type": "object",
+      "properties": {
+        "callerId": { "type": "string" },
+        "callerUsername": { "type": "string" },
+        "callerDisplayName": { "type": "string" },
+        "callerPhone": { "type": "string" },
+        "calleeId": { "type": "string" },
+        "calleeUsername": { "type": "string" },
+        "calleeDisplayName": { "type": "string" },
+        "calleePhone": { "type": "string" },
+        "participantUids": { "type": "array" },
+        "callType": {
+          "type": "string",
+          "enum": ["audio", "video"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ringing", "accepted", "declined", "ended", "missed"]
+        },
+        "callerVideoEnabled": { "type": "boolean" },
+        "calleeVideoEnabled": { "type": "boolean" },
+        "offerSdp": { "type": "string" },
+        "answerSdp": { "type": "string" },
+        "durationSeconds": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "callerId",
+        "callerUsername",
+        "callerDisplayName",
+        "callerPhone",
+        "calleeId",
+        "calleeUsername",
+        "calleeDisplayName",
+        "calleePhone",
+        "participantUids",
+        "callType",
+        "status",
+        "callerVideoEnabled",
+        "calleeVideoEnabled",
+        "durationSeconds",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "IceCandidateRecord": {
+      "title": "IceCandidateRecord",
+      "description": "WebRTC ICE candidate for signaling.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "participantUids": { "type": "array" },
+        "sdpMid": { "type": "string" },
+        "sdpMLineIndex": { "type": "integer" },
+        "candidate": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "senderId",
+        "participantUids",
+        "sdpMid",
+        "sdpMLineIndex",
+        "candidate",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private owner-only user profile."
+    },
+    "/directory/{userId}": {
+      "schema": { "$ref": "#/entities/DirectoryEntry" },
+      "description": "Authenticated searchable user directory and live presence."
+    },
+    "/usernames/{username}": {
+      "schema": { "$ref": "#/entities/IdentityClaim" },
+      "description": "Unique @username reservation records."
+    },
+    "/phone_claims/{phoneKey}": {
+      "schema": { "$ref": "#/entities/IdentityClaim" },
+      "description": "Unique E.164 phone number reservation records."
+    },
+    "/calls/{callId}": {
+      "schema": { "$ref": "#/entities/CallSession" },
+      "description": "Real-time WebRTC signaling sessions and call history."
+    },
+    "/calls/{callId}/callerCandidates/{candidateId}": {
+      "schema": { "$ref": "#/entities/IceCandidateRecord" },
+      "description": "ICE candidates sent by the caller."
+    },
+    "/calls/{callId}/calleeCandidates/{candidateId}": {
+      "schema": { "$ref": "#/entities/IceCandidateRecord" },
+      "description": "ICE candidates sent by the callee."
+    }
+  }
+}

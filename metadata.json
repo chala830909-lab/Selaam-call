@@ -1,0 +1,6 @@
+{
+  "name": "SelamCall",
+  "description": "Real-time audio and video calling app with dual phone number and @username identity, smart directory, WebRTC calling, and call history.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
